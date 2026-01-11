@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>SkyWay 通話アプリ</title>
+</head>
+<body>
+    <h1>SkyWay 音声通話テスト</h1>
+    <button id="join-btn">通話開始</button>
+    <p>ステータス: <span id="status">待機中</span></p>
+    <div id="remote-media-area"></div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "@skyway-sdk/room": "https://cdn.jsdelivr.net/npm/@skyway-sdk/room/dist/index.mjs"
+        }
+      }
+    </script>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
