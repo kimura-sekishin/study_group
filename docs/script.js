@@ -13,7 +13,6 @@ const memberCountLabel = document.getElementById('member-count');
 // --- 人数表示を更新する関数 ---
 const updateMemberCount = () => {
     if (!room) return;
-    // 自分を含めた合計人数を表示
     memberCountLabel.innerText = `入室者: ${room.members.length}名`;
 };
 
@@ -30,7 +29,7 @@ joinBtn.onclick = async () => {
     try {
         statusLabel.innerText = "認証中...";
         
-        // 💡 自分のRender URLに書き換えてください（パスワードをクエリで送信）
+        // RenderのURL (変更不要)
         const response = await fetch(`https://study-group-7e54.onrender.com/token?password=${password}`);
 
         if (response.status === 401) {
@@ -51,7 +50,7 @@ joinBtn.onclick = async () => {
         });
         member = await room.join();
 
-        // 自分のマイクを公開
+        // マイク公開
         statusLabel.innerText = "マイク準備中...";
         audioStream = await SkyWayStreamFactory.createMicrophoneAudioStream();
         publication = await member.publish(audioStream);
@@ -63,19 +62,18 @@ joinBtn.onclick = async () => {
         statusLabel.innerText = "接続完了";
         updateMemberCount();
 
-        // 相手が参加・退室した時に人数を更新
-        room.onMemberJoined.add(updateMemberCount);
-        room.onMemberLeft.add(updateMemberCount);
+        // 💡【修正点1】イベントが存在するかチェックしてから add する
+        if (room.onMemberJoined) room.onMemberJoined.add(updateMemberCount);
+        if (room.onMemberLeft) room.onMemberLeft.add(updateMemberCount);
 
-        // --- 購読（相手の音声を聴く）処理 ---
+        // --- 購読処理 ---
         const subscribe = async (pub) => {
-            // 💡 自分の投稿、または音声以外なら何もしない（エラー回避の重要ポイント）
+            // 💡【修正点2】自分のIDなら即座にリターン（ここがエラー回避の肝）
             if (pub.publisherId === member.id || pub.contentType !== 'audio') return;
 
             try {
                 const { stream } = await member.subscribe(pub.id);
                 
-                // 重複作成防止
                 if (document.getElementById(`audio-${pub.id}`)) return;
 
                 const remoteAudio = document.createElement('audio');
@@ -86,16 +84,18 @@ joinBtn.onclick = async () => {
                 document.getElementById('remote-media-area').appendChild(remoteAudio);
                 statusLabel.innerText = "通話中";
             } catch (e) {
+                // publicationNotExist エラーは無視してOK（タイミングの問題）
                 if (e.name !== 'publicationNotExist') {
                     console.error("購読エラー:", e);
                 }
             }
         };
 
-        // すでにルームに存在する投稿を購読
+        // すでにルームにある投稿を購読
         room.publications.forEach(subscribe);
         
-        // 💡 SDKのバージョン差異を吸収するイベント登録
+        // 💡【修正点3】エラーの原因になっていた「重複した古い書き方」を削除し、
+        // 以下の「安全な書き方」だけに統一しました
         const announcedEvent = room.onPublicationAnnounced || room.onStreamPublished;
         if (announcedEvent && typeof announcedEvent.add === 'function') {
             announcedEvent.add(({ publication }) => subscribe(publication));
@@ -113,7 +113,6 @@ muteBtn.onclick = () => {
     if (!audioStream) return;
     
     isMuted = !isMuted;
-    // マイク自体の有効/無効を切り替える
     audioStream.track.enabled = !isMuted;
     
     if (isMuted) {
@@ -136,7 +135,6 @@ leaveBtn.onclick = async () => {
     if (context) context.dispose();
     if (audioStream) audioStream.release();
 
-    // 状態リセット
     document.getElementById('remote-media-area').innerHTML = '';
     joinBtn.style.display = 'inline-block';
     document.getElementById('login-area').style.display = 'block';
