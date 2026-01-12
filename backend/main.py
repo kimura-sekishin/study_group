@@ -10,7 +10,7 @@ app = FastAPI()
 # CORS設定：GitHub Pagesからのアクセスを許可
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 特定のドメインに制限する場合は ["https://あなたのユーザー名.github.io"]
+    allow_origins=["https://kimura-sekishin.github.io"],  # 特定のドメインに制限する場合は ["https://あなたのユーザー名.github.io"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -19,9 +19,16 @@ app.add_middleware(
 SKYWAY_APP_ID = os.environ.get("SKYWAY_APP_ID")
 SKYWAY_SECRET_KEY = os.environ.get("SKYWAY_SECRET_KEY")
 
+# 環境変数から合言葉を取得
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "default_pass")
+
 
 @app.get("/token")
-def get_token():
+def get_token(password: str = None):  # パスワードを受け取る
+    # 合言葉のチェック
+    if password != APP_PASSWORD:
+        return {"error": "Invalid password"}, 401
+
     # 万が一環境変数が設定されていない場合のチェック
     if not SKYWAY_APP_ID or not SKYWAY_SECRET_KEY:
         return {"error": "Server configuration missing"}

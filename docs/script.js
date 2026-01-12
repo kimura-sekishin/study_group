@@ -19,11 +19,25 @@ const updateMemberCount = () => {
 
 // --- 接続処理 ---
 joinBtn.onclick = async () => {
+    const passwordInput = document.getElementById('app-password');
+    const password = passwordInput.value;
+
+    if (!password) {
+        alert("合言葉を入力してください");
+        return;
+    }
+
     try {
         statusLabel.innerText = "接続中...";
         
-        const response = await fetch('https://study-group-7e54.onrender.com/token'); // 自分のURLに書き換え
-        const { token } = await response.json();
+        const response = await fetch(`https://study-group-7e54.onrender.com/token?password=${password}`);
+
+        if (response.status === 401) {
+            throw new Error("合言葉が違います");
+        }
+        
+        const data = await response.json();
+        const token = data.token;
 
         context = await SkyWayContext.Create(token);
         room = await SkyWayRoom.FindOrCreate(context, { type: 'p2p', name: 'skyway-web-test-room' });
@@ -57,6 +71,9 @@ joinBtn.onclick = async () => {
 
         room.publications.forEach(subscribe);
         room.onPublicationAnnounced.add(({ publication }) => subscribe(publication));
+
+        // ログイン成功したら入力欄を消す
+        document.getElementById('login-area').style.display = 'none';
 
     } catch (error) {
         console.error(error);
