@@ -5,35 +5,39 @@ document.getElementById('join-btn').onclick = async () => {
     const remoteMediaArea = document.getElementById('remote-media-area');
 
     try {
-        statusLabel.innerText = "トークン取得中...";
+        statusLabel.innerText = "サーバーを起動中... (初動は30秒ほどかかる場合があります)";
         
-        // ローカルのPythonサーバーからトークンを取得
-        // const response = await fetch('http://127.0.0.1:8000/token');
-        const response = await fetch('http://192.168.179.7:8000/token');
+        // --- 1. Render のバックエンドからトークンを取得 ---
+        // 💡 [重要] ここをあなたの Render の URL に書き換えてください
+        const RENDER_BACKEND_URL = 'https://skyway-api-xxxx.onrender.com/token'; 
+        
+        const response = await fetch(RENDER_BACKEND_URL);
+        if (!response.ok) throw new Error("トークンの取得に失敗しました");
+        
         const { token } = await response.json();
 
+        // 2. SkyWayコンテキストの作成
         statusLabel.innerText = "SkyWayに接続中...";
         const context = await SkyWayContext.Create(token);
         
+        // 3. ルームへの参加
         const room = await SkyWayRoom.FindOrCreate(context, {
             type: 'p2p',
-            name: 'local-test-room'
+            name: 'skyway-web-test-room'
         });
 
         const member = await room.join();
-        statusLabel.innerText = "マイク準備中...";
+        statusLabel.innerText = "マイクの使用を許可してください...";
 
-        // 自分のマイクを公開
+        // --- 4. 自分のマイクを取得して公開（Publish） ---
         const audioStream = await SkyWayStreamFactory.createMicrophoneAudioStream();
         await member.publish(audioStream);
-        statusLabel.innerText = "接続完了！相手を待っています";
+        statusLabel.innerText = "接続完了！相手の入室を待っています";
 
-        // --- 相手の音声を購読する処理（修正版） ---
+        // --- 5. 相手の音声を受信して再生（Subscribe） ---
         const subscribe = async (publication) => {
-            // 1. 自分の投稿なら何もしない（publicationNotExist対策）
-            if (publication.publisherId === member.id) return;
-            // 2. 音声以外なら何もしない
-            if (publication.contentType !== 'audio') return;
+            // 自分の投稿、または音声以外なら何もしない
+            if (publication.publisherId === member.id || publication.contentType !== 'audio') return;
 
             try {
                 const { stream } = await member.subscribe(publication.id);
@@ -44,12 +48,12 @@ document.getElementById('join-btn').onclick = async () => {
                 const remoteAudio = document.createElement('audio');
                 remoteAudio.id = `audio-${publication.id}`;
                 remoteAudio.autoplay = true;
+                remoteAudio.playsInline = true; // スマホブラウザ対策
                 
                 stream.attach(remoteAudio);
                 remoteMediaArea.appendChild(remoteAudio);
                 
                 statusLabel.innerText = "通話中";
-                console.log("相手の音声を購読しました");
             } catch (e) {
                 console.error("購読エラー:", e);
             }
@@ -58,19 +62,15 @@ document.getElementById('join-btn').onclick = async () => {
         // すでにルームに存在する投稿を購読
         room.publications.forEach(subscribe);
         
-        // --- SDKのバージョンによるイベント名の違いを吸収 ---
-        // onPublicationAnnounced がダメなら onStreamPublished を試す
+        // 新しく投稿されたら購読する
         const eventSource = room.onPublicationAnnounced || room.onStreamPublished;
-
         if (eventSource && typeof eventSource.add === 'function') {
             eventSource.add(({ publication }) => subscribe(publication));
-        } else {
-            // 万が一どちらもダメな場合の予備（古い書き方）
-            room.on('publicationAnnounced', ({ publication }) => subscribe(publication));
         }
 
     } catch (error) {
         console.error("全体エラー:", error);
         statusLabel.innerText = "エラー: " + error.message;
+        alert("エラーが発生しました: " + error.message);
     }
 };
