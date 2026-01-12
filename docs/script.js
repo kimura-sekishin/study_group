@@ -33,6 +33,17 @@ const updateMemberList = () => {
     });
 };
 
+// --- 履歴を表示する関数 ---
+const updateHistoryUI = (history) => {
+    const historyList = document.getElementById('history-list');
+    historyList.innerHTML = '';
+    history.forEach(log => {
+        const li = document.createElement('li');
+        li.innerText = `${log.time} - ${log.name} さんが入室しました`;
+        historyList.appendChild(li);
+    });
+};
+
 // --- 接続処理 ---
 joinBtn.onclick = async () => {
     const passwordInput = document.getElementById('app-password');
@@ -50,12 +61,17 @@ joinBtn.onclick = async () => {
     try {
         statusLabel.innerText = "認証中...";
         
-        const response = await fetch(`https://study-group-7e54.onrender.com/token?password=${password}`);
+        // 💡 サーバーに名前も送るように修正
+        const response = await fetch(`https://study-group-7e54.onrender.com/token?password=${password}&username=${encodeURIComponent(username)}`);
 
         if (response.status === 401) throw new Error("合言葉が違います");
         if (!response.ok) throw new Error("サーバーとの通信に失敗しました");
         
         const data = await response.json();
+        // 💡 履歴を更新
+        if (data.history) {
+            updateHistoryUI(data.history);
+        }
         const token = data.token;
 
         statusLabel.innerText = "接続中...";
