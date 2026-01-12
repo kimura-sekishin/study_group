@@ -9,7 +9,12 @@
         .container { background: white; padding: 30px 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 400px; margin: 0 auto; }
         h1 { font-size: 24px; margin-bottom: 10px; }
         #status { font-size: 14px; color: #666; margin-bottom: 5px; }
-        #member-count { font-size: 16px; font-weight: bold; color: #007bff; margin-bottom: 20px; }
+        
+        /* 💡 参加者リストのデザイン */
+        #member-list { list-style: none; padding: 0; margin: 10px 0; font-size: 15px; color: #007bff; font-weight: bold; display: none; }
+        #member-list li { margin-bottom: 5px; }
+
+        input { width: 80%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
         
         button { 
             width: 90%; padding: 15px; font-size: 18px; margin: 10px 0; 
@@ -18,7 +23,7 @@
         #join-btn { background-color: #007bff; color: white; }
         #join-btn:active { background-color: #0056b3; }
         
-        .controls { display: none; } /* 接続中のみ表示 */
+        .controls { display: none; }
         #mute-btn { background-color: #6c757d; color: white; }
         #mute-btn.is-muted { background-color: #ffc107; color: #333; }
         #leave-btn { background-color: #dc3545; color: white; }
@@ -28,11 +33,12 @@
     <div class="container">
         <h1>Voice Chat</h1>
         <p id="status">待機中</p>
-        <div id="member-count">入室者: 0名</div>
+
+        <ul id="member-list"></ul>
         
         <div id="login-area">
-            <input type="password" id="app-password" placeholder="合言葉を入力" 
-                style="width: 80%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ccc;">
+            <input type="text" id="username" placeholder="名前を入力 (省略可)">
+            <input type="password" id="app-password" placeholder="合言葉を入力">
         </div>
         
         <button id="join-btn">通話をはじめる</button>

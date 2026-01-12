@@ -8,18 +8,39 @@ const leaveBtn = document.getElementById('leave-btn');
 const muteBtn = document.getElementById('mute-btn');
 const controls = document.getElementById('controls');
 const statusLabel = document.getElementById('status');
-const memberCountLabel = document.getElementById('member-count');
+const memberList = document.getElementById('member-list'); // リスト表示用
 
-// --- 人数表示を更新する関数 ---
-const updateMemberCount = () => {
+// --- 💡 参加者リストを更新する関数 ---
+const updateMemberList = () => {
     if (!room) return;
-    memberCountLabel.innerText = `入室者: ${room.members.length}名`;
+    
+    // リストを一度クリア
+    memberList.innerHTML = '';
+
+    // ルームにいる全員の情報をループして表示
+    room.members.forEach(m => {
+        // metadataに名前が入っていればそれを使い、なければ "匿名"
+        const name = m.metadata || "匿名";
+        const li = document.createElement('li');
+        
+        // 自分自身には「(自分)」をつけると分かりやすい
+        if (m.id === member.id) {
+            li.innerText = `👤 ${name} (自分)`;
+        } else {
+            li.innerText = `🟢 ${name}`;
+        }
+        memberList.appendChild(li);
+    });
 };
 
 // --- 接続処理 ---
 joinBtn.onclick = async () => {
     const passwordInput = document.getElementById('app-password');
+    const nameInput = document.getElementById('username'); // 名前取得
+    
     const password = passwordInput.value;
+    // 名前が空なら「匿名」にする
+    const username = nameInput.value || "匿名";
 
     if (!password) {
         alert("合言葉を入力してください");
@@ -29,26 +50,23 @@ joinBtn.onclick = async () => {
     try {
         statusLabel.innerText = "認証中...";
         
-        // RenderのURL (変更不要)
         const response = await fetch(`https://study-group-7e54.onrender.com/token?password=${password}`);
 
-        if (response.status === 401) {
-            throw new Error("合言葉が違います");
-        }
-        if (!response.ok) {
-            throw new Error("サーバーとの通信に失敗しました");
-        }
+        if (response.status === 401) throw new Error("合言葉が違います");
+        if (!response.ok) throw new Error("サーバーとの通信に失敗しました");
         
         const data = await response.json();
         const token = data.token;
 
-        statusLabel.innerText = "SkyWayに接続中...";
+        statusLabel.innerText = "接続中...";
         context = await SkyWayContext.Create(token);
         room = await SkyWayRoom.FindOrCreate(context, { 
             type: 'p2p', 
             name: 'skyway-web-test-room' 
         });
-        member = await room.join();
+
+        // 💡 ここで名前（metadata）を持たせて入室！
+        member = await room.join({ metadata: username });
 
         // マイク公開
         statusLabel.innerText = "マイク準備中...";
@@ -59,21 +77,22 @@ joinBtn.onclick = async () => {
         joinBtn.style.display = 'none';
         document.getElementById('login-area').style.display = 'none';
         controls.style.display = 'block';
+        memberList.style.display = 'block'; // リストを表示
         statusLabel.innerText = "接続完了";
-        updateMemberCount();
+        
+        // リスト更新
+        updateMemberList();
 
-        // 💡【修正点1】イベントが存在するかチェックしてから add する
-        if (room.onMemberJoined) room.onMemberJoined.add(updateMemberCount);
-        if (room.onMemberLeft) room.onMemberLeft.add(updateMemberCount);
+        // 💡 メンバーの参加・退室時にリストを更新
+        if (room.onMemberJoined) room.onMemberJoined.add(updateMemberList);
+        if (room.onMemberLeft) room.onMemberLeft.add(updateMemberList);
 
         // --- 購読処理 ---
         const subscribe = async (pub) => {
-            // 💡【修正点2】自分のIDなら即座にリターン（ここがエラー回避の肝）
             if (pub.publisherId === member.id || pub.contentType !== 'audio') return;
 
             try {
                 const { stream } = await member.subscribe(pub.id);
-                
                 if (document.getElementById(`audio-${pub.id}`)) return;
 
                 const remoteAudio = document.createElement('audio');
@@ -84,18 +103,12 @@ joinBtn.onclick = async () => {
                 document.getElementById('remote-media-area').appendChild(remoteAudio);
                 statusLabel.innerText = "通話中";
             } catch (e) {
-                // publicationNotExist エラーは無視してOK（タイミングの問題）
-                if (e.name !== 'publicationNotExist') {
-                    console.error("購読エラー:", e);
-                }
+                if (e.name !== 'publicationNotExist') console.error("購読エラー:", e);
             }
         };
 
-        // すでにルームにある投稿を購読
         room.publications.forEach(subscribe);
         
-        // 💡【修正点3】エラーの原因になっていた「重複した古い書き方」を削除し、
-        // 以下の「安全な書き方」だけに統一しました
         const announcedEvent = room.onPublicationAnnounced || room.onStreamPublished;
         if (announcedEvent && typeof announcedEvent.add === 'function') {
             announcedEvent.add(({ publication }) => subscribe(publication));
@@ -111,7 +124,6 @@ joinBtn.onclick = async () => {
 // --- ミュート切り替え ---
 muteBtn.onclick = () => {
     if (!audioStream) return;
-    
     isMuted = !isMuted;
     audioStream.track.enabled = !isMuted;
     
@@ -139,8 +151,9 @@ leaveBtn.onclick = async () => {
     joinBtn.style.display = 'inline-block';
     document.getElementById('login-area').style.display = 'block';
     controls.style.display = 'none';
+    memberList.style.display = 'none'; // リストを隠す
     statusLabel.innerText = "待機中";
-    memberCountLabel.innerText = "入室者: 0名";
+    memberList.innerHTML = ''; // リストの中身をクリア
     isMuted = false;
     muteBtn.innerText = "マイクをミュート";
     muteBtn.classList.remove('is-muted');
