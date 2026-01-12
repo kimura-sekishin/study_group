@@ -1,76 +1,104 @@
 import { SkyWayContext, SkyWayRoom, SkyWayStreamFactory } from '@skyway-sdk/room';
 
-document.getElementById('join-btn').onclick = async () => {
-    const statusLabel = document.getElementById('status');
-    const remoteMediaArea = document.getElementById('remote-media-area');
+let context, room, member, audioStream, publication;
+let isMuted = false;
 
+const joinBtn = document.getElementById('join-btn');
+const leaveBtn = document.getElementById('leave-btn');
+const muteBtn = document.getElementById('mute-btn');
+const controls = document.getElementById('controls');
+const statusLabel = document.getElementById('status');
+const memberCountLabel = document.getElementById('member-count');
+
+// --- 人数表示を更新する関数 ---
+const updateMemberCount = () => {
+    if (!room) return;
+    // 自分を含めた合計人数を表示
+    memberCountLabel.innerText = `入室者: ${room.members.length}名`;
+};
+
+// --- 接続処理 ---
+joinBtn.onclick = async () => {
     try {
-        statusLabel.innerText = "サーバーを起動中... (初動は30秒ほどかかる場合があります)";
+        statusLabel.innerText = "接続中...";
         
-        // --- 1. Render のバックエンドからトークンを取得 ---
-        // 💡 [重要] ここをあなたの Render の URL に書き換えてください
-        const RENDER_BACKEND_URL = 'https://study-group-7e54.onrender.com/token'; 
-        
-        const response = await fetch(RENDER_BACKEND_URL);
-        if (!response.ok) throw new Error("トークンの取得に失敗しました");
-        
+        const response = await fetch('https://study-group-7e54.onrender.com/token'); // 自分のURLに書き換え
         const { token } = await response.json();
 
-        // 2. SkyWayコンテキストの作成
-        statusLabel.innerText = "SkyWayに接続中...";
-        const context = await SkyWayContext.Create(token);
-        
-        // 3. ルームへの参加
-        const room = await SkyWayRoom.FindOrCreate(context, {
-            type: 'p2p',
-            name: 'skyway-web-test-room'
-        });
+        context = await SkyWayContext.Create(token);
+        room = await SkyWayRoom.FindOrCreate(context, { type: 'p2p', name: 'skyway-web-test-room' });
+        member = await room.join();
 
-        const member = await room.join();
-        statusLabel.innerText = "マイクの使用を許可してください...";
+        // 自分のマイクを公開
+        audioStream = await SkyWayStreamFactory.createMicrophoneAudioStream();
+        publication = await member.publish(audioStream);
 
-        // --- 4. 自分のマイクを取得して公開（Publish） ---
-        const audioStream = await SkyWayStreamFactory.createMicrophoneAudioStream();
-        await member.publish(audioStream);
-        statusLabel.innerText = "接続完了！相手の入室を待っています";
+        // UI切り替え
+        joinBtn.style.display = 'none';
+        controls.style.display = 'block';
+        statusLabel.innerText = "接続完了";
+        updateMemberCount();
 
-        // --- 5. 相手の音声を受信して再生（Subscribe） ---
-        const subscribe = async (publication) => {
-            // 自分の投稿、または音声以外なら何もしない
-            if (publication.publisherId === member.id || publication.contentType !== 'audio') return;
+        // 相手が参加・退室した時に人数を更新
+        room.onMemberJoined.add(updateMemberCount);
+        room.onMemberLeft.add(updateMemberCount);
 
-            try {
-                const { stream } = await member.subscribe(publication.id);
-                
-                // すでに同じ音声用のaudioタグがあれば作成しない
-                if (document.getElementById(`audio-${publication.id}`)) return;
-
-                const remoteAudio = document.createElement('audio');
-                remoteAudio.id = `audio-${publication.id}`;
-                remoteAudio.autoplay = true;
-                remoteAudio.playsInline = true; // スマホブラウザ対策
-                
-                stream.attach(remoteAudio);
-                remoteMediaArea.appendChild(remoteAudio);
-                
-                statusLabel.innerText = "通話中";
-            } catch (e) {
-                console.error("購読エラー:", e);
-            }
+        // 購読処理
+        const subscribe = async (pub) => {
+            if (pub.publisherId === member.id || pub.contentType !== 'audio') return;
+            const { stream } = await member.subscribe(pub.id);
+            const remoteAudio = document.createElement('audio');
+            remoteAudio.id = `audio-${pub.id}`;
+            remoteAudio.autoplay = true;
+            remoteAudio.playsInline = true;
+            stream.attach(remoteAudio);
+            document.getElementById('remote-media-area').appendChild(remoteAudio);
         };
 
-        // すでにルームに存在する投稿を購読
         room.publications.forEach(subscribe);
-        
-        // 新しく投稿されたら購読する
-        const eventSource = room.onPublicationAnnounced || room.onStreamPublished;
-        if (eventSource && typeof eventSource.add === 'function') {
-            eventSource.add(({ publication }) => subscribe(publication));
-        }
+        room.onPublicationAnnounced.add(({ publication }) => subscribe(publication));
 
     } catch (error) {
-        console.error("全体エラー:", error);
-        statusLabel.innerText = "エラー: " + error.message;
-        alert("エラーが発生しました: " + error.message);
+        console.error(error);
+        alert("エラー: " + error.message);
     }
+};
+
+// --- ミュート切り替え ---
+muteBtn.onclick = () => {
+    if (!audioStream) return;
+    
+    isMuted = !isMuted;
+    // getTracks()[0].enabled を操作する
+    audioStream.track.enabled = !isMuted;
+    
+    if (isMuted) {
+        muteBtn.innerText = "ミュート解除";
+        muteBtn.classList.add('is-muted');
+        statusLabel.innerText = "ミュート中";
+    } else {
+        muteBtn.innerText = "マイクをミュート";
+        muteBtn.classList.remove('is-muted');
+        statusLabel.innerText = "通話中";
+    }
+};
+
+// --- 切断処理 ---
+leaveBtn.onclick = async () => {
+    statusLabel.innerText = "切断中...";
+    
+    if (member) await member.leave();
+    if (room) await room.dispose();
+    if (context) context.dispose();
+    if (audioStream) audioStream.release();
+
+    // 状態リセット
+    document.getElementById('remote-media-area').innerHTML = '';
+    joinBtn.style.display = 'inline-block';
+    controls.style.display = 'none';
+    statusLabel.innerText = "待機中";
+    memberCountLabel.innerText = "入室者: 0名";
+    isMuted = false;
+    muteBtn.innerText = "マイクをミュート";
+    muteBtn.classList.remove('is-muted');
 };

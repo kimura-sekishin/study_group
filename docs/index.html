@@ -2,13 +2,43 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>SkyWay 通話アプリ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyWay Mobile App</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; text-align: center; padding: 20px; background: #f8f9fa; color: #333; }
+        .container { background: white; padding: 30px 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 400px; margin: 0 auto; }
+        h1 { font-size: 24px; margin-bottom: 10px; }
+        #status { font-size: 14px; color: #666; margin-bottom: 5px; }
+        #member-count { font-size: 16px; font-weight: bold; color: #007bff; margin-bottom: 20px; }
+        
+        button { 
+            width: 90%; padding: 15px; font-size: 18px; margin: 10px 0; 
+            border: none; border-radius: 12px; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        #join-btn { background-color: #007bff; color: white; }
+        #join-btn:active { background-color: #0056b3; }
+        
+        .controls { display: none; } /* 接続中のみ表示 */
+        #mute-btn { background-color: #6c757d; color: white; }
+        #mute-btn.is-muted { background-color: #ffc107; color: #333; }
+        #leave-btn { background-color: #dc3545; color: white; }
+    </style>
 </head>
 <body>
-    <h1>SkyWay 音声通話テスト</h1>
-    <button id="join-btn">通話開始</button>
-    <p>ステータス: <span id="status">待機中</span></p>
-    <div id="remote-media-area"></div>
+    <div class="container">
+        <h1>Voice Chat</h1>
+        <p id="status">待機中</p>
+        <div id="member-count">入室者: 0名</div>
+        
+        <button id="join-btn">通話をはじめる</button>
+
+        <div id="controls" class="controls">
+            <button id="mute-btn">マイクをミュート</button>
+            <button id="leave-btn">通話を切断</button>
+        </div>
+
+        <div id="remote-media-area"></div>
+    </div>
 
     <script type="importmap">
       {
