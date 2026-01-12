@@ -9,7 +9,7 @@ document.getElementById('join-btn').onclick = async () => {
         
         // --- 1. Render のバックエンドからトークンを取得 ---
         // 💡 [重要] ここをあなたの Render の URL に書き換えてください
-        const RENDER_BACKEND_URL = 'https://skyway-api-xxxx.onrender.com/token'; 
+        const RENDER_BACKEND_URL = 'https://study-group-7e54.onrender.com/token'; 
         
         const response = await fetch(RENDER_BACKEND_URL);
         if (!response.ok) throw new Error("トークンの取得に失敗しました");
