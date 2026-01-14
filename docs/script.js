@@ -62,7 +62,7 @@ joinBtn.onclick = async () => {
         statusLabel.innerText = "認証中...";
         
         // 💡 サーバーに名前も送るように修正
-        const response = await fetch(`https://study-group-7e54.onrender.com/token?password=${password}&username=${encodeURIComponent(username)}`);
+        const response = await fetch(`https://isdw7jpzcj.execute-api.ap-northeast-3.amazonaws.com/default/study_group_main/token?password=${password}&username=${encodeURIComponent(username)}`);
 
         if (response.status === 401) throw new Error("合言葉が違います");
         if (!response.ok) throw new Error("サーバーとの通信に失敗しました");
