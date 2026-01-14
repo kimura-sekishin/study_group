@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkyWay Study Room</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 20px; background: #f0f2f5; color: #1c1e21; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 20px; background: #f0f2f5; color: #1c1e21; }
         .container { background: white; padding: 25px; border-radius: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
         h1 { font-size: 22px; margin-bottom: 5px; color: #007bff; }
         #status { font-size: 13px; color: #888; margin-bottom: 15px; }
         
-        input { width: 90%; padding: 12px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; outline: none; }
+        input { width: 90%; padding: 12px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; outline: none; box-sizing: border-box; }
         input:focus { border-color: #007bff; }
         
         button { width: 100%; padding: 14px; font-size: 16px; margin: 8px 0; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; transition: 0.2s; }
@@ -20,19 +20,17 @@
         #leave-btn { background-color: #ff4d4f; color: white; }
 
         #member-list { list-style: none; padding: 10px; margin: 10px 0; font-size: 14px; background: #f9f9f9; border-radius: 10px; display: none; text-align: left; }
-        
-        /* チャットエリア */
+        #member-list li { margin-bottom: 4px; color: #007bff; font-weight: bold; }
+
         #chat-section { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; display: none; }
-        #chat-display { height: 180px; overflow-y: auto; text-align: left; font-size: 13px; margin-bottom: 10px; padding: 5px; display: flex; flex-direction: column; }
-        .msg-item { margin-bottom: 8px; line-height: 1.4; }
-        .msg-item b { color: #007bff; }
+        #chat-display { height: 180px; overflow-y: auto; text-align: left; font-size: 13px; margin-bottom: 10px; padding: 5px; border-bottom: 1px solid #f0f0f0; }
+        .msg-item { margin-bottom: 8px; }
         .msg-time { color: #aaa; font-size: 10px; margin-right: 5px; }
         
         .chat-input-group { display: flex; gap: 8px; }
         #chat-input { margin-bottom: 0; flex: 1; padding: 10px; font-size: 14px; }
         #send-chat-btn { width: 70px; margin: 0; padding: 10px; background: #28a745; color: white; border-radius: 10px; font-size: 14px; }
 
-        /* 履歴エリア */
         #history-section { margin-top: 25px; text-align: left; font-size: 12px; color: #999; border-top: 1px dashed #eee; padding-top: 10px; }
         #history-list { list-style: none; padding: 0; margin-top: 5px; }
     </style>
@@ -41,7 +39,6 @@
     <div class="container">
         <h1>Study Room</h1>
         <p id="status">待機中</p>
-
         <ul id="member-list"></ul>
         
         <div id="login-area">
