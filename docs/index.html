@@ -3,66 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkyWay Mobile App</title>
+    <title>SkyWay Study Room</title>
     <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; text-align: center; padding: 20px; background: #f8f9fa; color: #333; }
-        .container { background: white; padding: 30px 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 400px; margin: 0 auto; }
-        h1 { font-size: 24px; margin-bottom: 10px; }
-        #status { font-size: 14px; color: #666; margin-bottom: 5px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 20px; background: #f0f2f5; color: #1c1e21; }
+        .container { background: white; padding: 25px; border-radius: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+        h1 { font-size: 22px; margin-bottom: 5px; color: #007bff; }
+        #status { font-size: 13px; color: #888; margin-bottom: 15px; }
         
-        /* 💡 参加者リストのデザイン */
-        #member-list { list-style: none; padding: 0; margin: 10px 0; font-size: 15px; color: #007bff; font-weight: bold; display: none; }
-        #member-list li { margin-bottom: 5px; }
-
-        input { width: 80%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
+        input { width: 90%; padding: 12px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; outline: none; }
+        input:focus { border-color: #007bff; }
         
-        button { 
-            width: 90%; padding: 15px; font-size: 18px; margin: 10px 0; 
-            border: none; border-radius: 12px; cursor: pointer; font-weight: bold; transition: 0.2s;
-        }
+        button { width: 100%; padding: 14px; font-size: 16px; margin: 8px 0; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         #join-btn { background-color: #007bff; color: white; }
-        #join-btn:active { background-color: #0056b3; }
+        #mute-btn { background-color: #f0f0f0; color: #333; }
+        #mute-btn.is-muted { background-color: #ffc107; color: #000; }
+        #leave-btn { background-color: #ff4d4f; color: white; }
+
+        #member-list { list-style: none; padding: 10px; margin: 10px 0; font-size: 14px; background: #f9f9f9; border-radius: 10px; display: none; text-align: left; }
         
-        .controls { display: none; }
-        #mute-btn { background-color: #6c757d; color: white; }
-        #mute-btn.is-muted { background-color: #ffc107; color: #333; }
-        #leave-btn { background-color: #dc3545; color: white; }
+        /* チャットエリア */
+        #chat-section { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; display: none; }
+        #chat-display { height: 180px; overflow-y: auto; text-align: left; font-size: 13px; margin-bottom: 10px; padding: 5px; display: flex; flex-direction: column; }
+        .msg-item { margin-bottom: 8px; line-height: 1.4; }
+        .msg-item b { color: #007bff; }
+        .msg-time { color: #aaa; font-size: 10px; margin-right: 5px; }
+        
+        .chat-input-group { display: flex; gap: 8px; }
+        #chat-input { margin-bottom: 0; flex: 1; padding: 10px; font-size: 14px; }
+        #send-chat-btn { width: 70px; margin: 0; padding: 10px; background: #28a745; color: white; border-radius: 10px; font-size: 14px; }
+
+        /* 履歴エリア */
+        #history-section { margin-top: 25px; text-align: left; font-size: 12px; color: #999; border-top: 1px dashed #eee; padding-top: 10px; }
+        #history-list { list-style: none; padding: 0; margin-top: 5px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Voice Chat</h1>
+        <h1>Study Room</h1>
         <p id="status">待機中</p>
 
         <ul id="member-list"></ul>
         
         <div id="login-area">
-            <input type="text" id="username" placeholder="名前を入力 (省略可)">
-            <input type="password" id="app-password" placeholder="合言葉を入力">
+            <input type="text" id="username" placeholder="名前 (表示用)">
+            <input type="password" id="app-password" placeholder="合言葉">
+            <button id="join-btn">入室する</button>
         </div>
-        
-        <button id="join-btn">通話をはじめる</button>
 
-        <div id="controls" class="controls">
+        <div id="controls" style="display: none;">
             <button id="mute-btn">マイクをミュート</button>
-            <button id="leave-btn">通話を切断</button>
+            <button id="leave-btn">退出する</button>
+        </div>
+
+        <div id="chat-section">
+            <div id="chat-display"></div>
+            <div class="chat-input-group">
+                <input type="text" id="chat-input" placeholder="メッセージ...">
+                <button id="send-chat-btn">送信</button>
+            </div>
         </div>
 
         <div id="remote-media-area"></div>
 
-        <div id="history-section" style="margin-top: 30px; text-align: left; font-size: 13px; color: #777; border-top: 1px solid #eee; padding-top: 10px;">
-            <p style="font-weight: bold; margin-bottom: 5px;">最近の入室履歴</p>
-            <ul id="history-list" style="list-style: none; padding: 0;">
-                </ul>
+        <div id="history-section">
+            <p style="font-weight: bold; margin: 0;">最近の入室</p>
+            <ul id="history-list"></ul>
         </div>
     </div>
 
     <script type="importmap">
-      {
-        "imports": {
-          "@skyway-sdk/room": "https://cdn.jsdelivr.net/npm/@skyway-sdk/room/dist/index.mjs"
-        }
-      }
+      { "imports": { "@skyway-sdk/room": "https://cdn.jsdelivr.net/npm/@skyway-sdk/room/dist/index.mjs" } }
     </script>
     <script type="module" src="script.js"></script>
 </body>

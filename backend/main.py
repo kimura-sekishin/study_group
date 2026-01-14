@@ -20,7 +20,7 @@ app.add_middleware(
 )
 
 # AWS DynamoDB設定
-dynamodb = boto3.resource('dynamodb', region_name='ap-northeast-1')
+dynamodb = boto3.resource('dynamodb', region_name='ap-northeast-3')
 table = dynamodb.Table('SkyWayJoinLogs')
 
 SKYWAY_APP_ID = os.environ.get("SKYWAY_APP_ID")

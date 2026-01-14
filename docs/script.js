@@ -1,178 +1,146 @@
 import { SkyWayContext, SkyWayRoom, SkyWayStreamFactory } from '@skyway-sdk/room';
 
-let context, room, member, audioStream, publication;
+const baseUrl = "https://isdw7jpzcj.execute-api.ap-northeast-3.amazonaws.com/default";
+let context, room, member, audioStream, pollInterval;
 let isMuted = false;
 
 const joinBtn = document.getElementById('join-btn');
 const leaveBtn = document.getElementById('leave-btn');
 const muteBtn = document.getElementById('mute-btn');
-const controls = document.getElementById('controls');
 const statusLabel = document.getElementById('status');
-const memberList = document.getElementById('member-list'); // リスト表示用
+const chatInput = document.getElementById('chat-input');
+const sendChatBtn = document.getElementById('send-chat-btn');
+const chatDisplay = document.getElementById('chat-display');
+const memberList = document.getElementById('member-list');
 
-// --- 💡 参加者リストを更新する関数 ---
+// --- チャット取得 ---
+const loadChats = async () => {
+    try {
+        const res = await fetch(`${baseUrl}/get_chats`);
+        const data = await res.json();
+        if (!data.messages) return;
+        
+        // 最新が下に来るように並び替えて表示
+        chatDisplay.innerHTML = data.messages.reverse().map(m => 
+            `<div class="msg-item"><span class="msg-time">${m.time}</span><b>${m.name}</b>: ${m.message}</div>`
+        ).join('');
+        chatDisplay.scrollTop = chatDisplay.scrollHeight;
+    } catch (e) { console.error("チャット取得失敗:", e); }
+};
+
+// --- チャット送信 ---
+const sendChat = async () => {
+    const msg = chatInput.value.trim();
+    const name = document.getElementById('username').value || "匿名";
+    if (!msg) return;
+    try {
+        await fetch(`${baseUrl}/post_chat?username=${encodeURIComponent(name)}&message=${encodeURIComponent(msg)}`);
+        chatInput.value = '';
+        await loadChats();
+    } catch (e) { console.error("送信失敗:", e); }
+};
+
+// --- 参加者リスト更新 ---
 const updateMemberList = () => {
     if (!room) return;
-    
-    // リストを一度クリア
-    memberList.innerHTML = '';
-
-    // ルームにいる全員の情報をループして表示
-    room.members.forEach(m => {
-        // metadataに名前が入っていればそれを使い、なければ "匿名"
+    memberList.innerHTML = room.members.map(m => {
         const name = m.metadata || "匿名";
-        const li = document.createElement('li');
-        
-        // 自分自身には「(自分)」をつけると分かりやすい
-        if (m.id === member.id) {
-            li.innerText = `👤 ${name} (自分)`;
-        } else {
-            li.innerText = `🟢 ${name}`;
-        }
-        memberList.appendChild(li);
-    });
+        return `<li>${m.id === member.id ? '👤' : '🟢'} ${name}${m.id === member.id ? ' (自分)' : ''}</li>`;
+    }).join('');
 };
 
-// --- 履歴を表示する関数 ---
-const updateHistoryUI = (history) => {
-    const historyList = document.getElementById('history-list');
-    historyList.innerHTML = '';
-    history.forEach(log => {
-        const li = document.createElement('li');
-        li.innerText = `${log.time} - ${log.name} さんが入室しました`;
-        historyList.appendChild(li);
-    });
-};
-
-// --- 接続処理 ---
-joinBtn.onclick = async () => {
-    const passwordInput = document.getElementById('app-password');
-    const nameInput = document.getElementById('username'); // 名前取得
+// --- 購読処理（音が聞こえるようにする重要処理） ---
+const subscribe = async (pub) => {
+    if (pub.publisherId === member.id || pub.contentType !== 'audio') return;
     
-    const password = passwordInput.value;
-    // 名前が空なら「匿名」にする
-    const username = nameInput.value || "匿名";
+    // すでに同じパブリケーションを購読していないか確認（重複防止）
+    if (document.getElementById(`audio-${pub.id}`)) return;
 
-    if (!password) {
-        alert("合言葉を入力してください");
-        return;
+    try {
+        const { stream } = await member.subscribe(pub.id);
+        const remoteAudio = document.createElement('audio');
+        remoteAudio.id = `audio-${pub.id}`;
+        remoteAudio.autoplay = true;
+        remoteAudio.playsInline = true;
+        stream.attach(remoteAudio);
+        document.getElementById('remote-media-area').appendChild(remoteAudio);
+    } catch (e) {
+        console.error("購読エラー:", e);
     }
+};
+
+// --- 入室処理 ---
+joinBtn.onclick = async () => {
+    const password = document.getElementById('app-password').value;
+    const username = document.getElementById('username').value || "匿名";
+    if (!password) return alert("合言葉を入力してください");
 
     try {
         statusLabel.innerText = "認証中...";
+        const res = await fetch(`${baseUrl}/token?password=${password}&username=${encodeURIComponent(username)}`);
         
-        // 💡 サーバーに名前も送るように修正
-        // 💡 URLの中間の "study_group_main" を削除した形にします
-        const baseUrl = "https://isdw7jpzcj.execute-api.ap-northeast-3.amazonaws.com/default";
-        const response = await fetch(`${baseUrl}/token?password=${password}&username=${encodeURIComponent(username)}`);
-
-        if (response.status === 401) throw new Error("合言葉が違います");
-        if (!response.ok) throw new Error("サーバーとの通信に失敗しました");
+        if (res.status === 401) throw new Error("合言葉が違います");
+        if (!res.ok) throw new Error("サーバー接続エラー");
         
-        const data = await response.json();
-        // 💡 履歴を更新
-        if (data.history) {
-            updateHistoryUI(data.history);
-        }
-        const token = data.token;
+        const data = await res.json();
+        
+        // 入室履歴の表示
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = data.history.map(h => `<li>${h.time} - ${h.name} さんが入室</li>`).join('');
 
         statusLabel.innerText = "接続中...";
-        context = await SkyWayContext.Create(token);
-        room = await SkyWayRoom.FindOrCreate(context, { 
-            type: 'p2p', 
-            name: 'skyway-web-test-room' 
-        });
-
-        // 💡 ここで名前（metadata）を持たせて入室！
+        context = await SkyWayContext.Create(data.token);
+        room = await SkyWayRoom.FindOrCreate(context, { type: 'p2p', name: 'skyway-web-test-room' });
+        
+        // 名前を載せて入室
         member = await room.join({ metadata: username });
 
         // マイク公開
-        statusLabel.innerText = "マイク準備中...";
         audioStream = await SkyWayStreamFactory.createMicrophoneAudioStream();
-        publication = await member.publish(audioStream);
+        await member.publish(audioStream);
 
-        // UI切り替え
-        joinBtn.style.display = 'none';
+        // UI表示
         document.getElementById('login-area').style.display = 'none';
-        controls.style.display = 'block';
-        memberList.style.display = 'block'; // リストを表示
-        statusLabel.innerText = "接続完了";
-        
-        // リスト更新
+        document.getElementById('controls').style.display = 'block';
+        document.getElementById('chat-section').style.display = 'block';
+        memberList.style.display = 'block';
+        statusLabel.innerText = "通話中";
+
+        // 初期表示とイベント登録
         updateMemberList();
+        room.onMemberJoined.add(updateMemberList);
+        room.onMemberLeft.add(updateMemberList);
 
-        // 💡 メンバーの参加・退室時にリストを更新
-        if (room.onMemberJoined) room.onMemberJoined.add(updateMemberList);
-        if (room.onMemberLeft) room.onMemberLeft.add(updateMemberList);
-
-        // --- 購読処理 ---
-        const subscribe = async (pub) => {
-            if (pub.publisherId === member.id || pub.contentType !== 'audio') return;
-
-            try {
-                const { stream } = await member.subscribe(pub.id);
-                if (document.getElementById(`audio-${pub.id}`)) return;
-
-                const remoteAudio = document.createElement('audio');
-                remoteAudio.id = `audio-${pub.id}`;
-                remoteAudio.autoplay = true;
-                remoteAudio.playsInline = true;
-                stream.attach(remoteAudio);
-                document.getElementById('remote-media-area').appendChild(remoteAudio);
-                statusLabel.innerText = "通話中";
-            } catch (e) {
-                if (e.name !== 'publicationNotExist') console.error("購読エラー:", e);
-            }
-        };
-
+        // 既存の音声を購読
         room.publications.forEach(subscribe);
-        
-        const announcedEvent = room.onPublicationAnnounced || room.onStreamPublished;
-        if (announcedEvent && typeof announcedEvent.add === 'function') {
-            announcedEvent.add(({ publication }) => subscribe(publication));
-        }
+        // 新しく入ってきた人の音声を購読
+        room.onPublicationAnnounced.add(({ publication }) => subscribe(publication));
 
-    } catch (error) {
-        console.error("全体エラー:", error);
+        // チャット機能開始
+        await loadChats();
+        pollInterval = setInterval(loadChats, 5000);
+
+    } catch (e) {
+        console.error("全体エラー:", e);
+        alert(e.message);
         statusLabel.innerText = "待機中";
-        alert(error.message);
     }
 };
 
-// --- ミュート切り替え ---
+// --- 各種ボタンイベント ---
+sendChatBtn.onclick = sendChat;
+chatInput.onkeypress = (e) => { if(e.key === 'Enter') sendChat(); };
+
 muteBtn.onclick = () => {
     if (!audioStream) return;
     isMuted = !isMuted;
     audioStream.track.enabled = !isMuted;
-    
-    if (isMuted) {
-        muteBtn.innerText = "ミュート解除";
-        muteBtn.classList.add('is-muted');
-        statusLabel.innerText = "ミュート中";
-    } else {
-        muteBtn.innerText = "マイクをミュート";
-        muteBtn.classList.remove('is-muted');
-        statusLabel.innerText = "通話中";
-    }
+    muteBtn.innerText = isMuted ? "マイクをオンにする" : "マイクをミュート";
+    muteBtn.classList.toggle('is-muted', isMuted);
+    statusLabel.innerText = isMuted ? "ミュート中" : "通話中";
 };
 
-// --- 切断処理 ---
-leaveBtn.onclick = async () => {
-    statusLabel.innerText = "切断中...";
-    
-    if (member) await member.leave();
-    if (room) await room.dispose();
-    if (context) context.dispose();
-    if (audioStream) audioStream.release();
-
-    document.getElementById('remote-media-area').innerHTML = '';
-    joinBtn.style.display = 'inline-block';
-    document.getElementById('login-area').style.display = 'block';
-    controls.style.display = 'none';
-    memberList.style.display = 'none'; // リストを隠す
-    statusLabel.innerText = "待機中";
-    memberList.innerHTML = ''; // リストの中身をクリア
-    isMuted = false;
-    muteBtn.innerText = "マイクをミュート";
-    muteBtn.classList.remove('is-muted');
+leaveBtn.onclick = () => {
+    // リロードするのが一番確実に全リソースを解放できます
+    location.reload();
 };
