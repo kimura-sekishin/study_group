@@ -9,28 +9,21 @@
         .container { background: white; padding: 25px; border-radius: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
         h1 { font-size: 22px; margin-bottom: 5px; color: #007bff; }
         #status { font-size: 13px; color: #888; margin-bottom: 15px; }
-        
         input { width: 90%; padding: 12px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; outline: none; box-sizing: border-box; }
-        input:focus { border-color: #007bff; }
-        
         button { width: 100%; padding: 14px; font-size: 16px; margin: 8px 0; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         #join-btn { background-color: #007bff; color: white; }
         #mute-btn { background-color: #f0f0f0; color: #333; }
         #mute-btn.is-muted { background-color: #ffc107; color: #000; }
         #leave-btn { background-color: #ff4d4f; color: white; }
-
         #member-list { list-style: none; padding: 10px; margin: 10px 0; font-size: 14px; background: #f9f9f9; border-radius: 10px; display: none; text-align: left; }
         #member-list li { margin-bottom: 4px; color: #007bff; font-weight: bold; }
-
         #chat-section { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; display: none; }
         #chat-display { height: 180px; overflow-y: auto; text-align: left; font-size: 13px; margin-bottom: 10px; padding: 5px; border-bottom: 1px solid #f0f0f0; }
         .msg-item { margin-bottom: 8px; }
         .msg-time { color: #aaa; font-size: 10px; margin-right: 5px; }
-        
         .chat-input-group { display: flex; gap: 8px; }
         #chat-input { margin-bottom: 0; flex: 1; padding: 10px; font-size: 14px; }
         #send-chat-btn { width: 70px; margin: 0; padding: 10px; background: #28a745; color: white; border-radius: 10px; font-size: 14px; }
-
         #history-section { margin-top: 25px; text-align: left; font-size: 12px; color: #999; border-top: 1px dashed #eee; padding-top: 10px; }
         #history-list { list-style: none; padding: 0; margin-top: 5px; }
     </style>
@@ -40,34 +33,30 @@
         <h1>Study Room</h1>
         <p id="status">待機中</p>
         <ul id="member-list"></ul>
-        
         <div id="login-area">
             <input type="text" id="username" placeholder="名前 (表示用)">
             <input type="password" id="app-password" placeholder="合言葉">
             <button id="join-btn">入室する</button>
         </div>
-
         <div id="controls" style="display: none;">
             <button id="mute-btn">マイクをミュート</button>
             <button id="leave-btn">退出する</button>
         </div>
-
         <div id="chat-section">
-            <div id="chat-display"></div>
+            <div id="chat-display">
+                <div style="color: #ccc; text-align: center; margin-top: 20px;">メッセージを読み込み中...</div>
+            </div>
             <div class="chat-input-group">
                 <input type="text" id="chat-input" placeholder="メッセージ...">
                 <button id="send-chat-btn">送信</button>
             </div>
         </div>
-
         <div id="remote-media-area"></div>
-
         <div id="history-section">
             <p style="font-weight: bold; margin: 0;">最近の入室</p>
             <ul id="history-list"></ul>
         </div>
     </div>
-
     <script type="importmap">
       { "imports": { "@skyway-sdk/room": "https://cdn.jsdelivr.net/npm/@skyway-sdk/room/dist/index.mjs" } }
     </script>

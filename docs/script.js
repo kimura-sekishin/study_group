@@ -13,18 +13,30 @@ const sendChatBtn = document.getElementById('send-chat-btn');
 const chatDisplay = document.getElementById('chat-display');
 const memberList = document.getElementById('member-list');
 
+// チャット取得関数
 const loadChats = async () => {
     try {
         const res = await fetch(`${baseUrl}/get_chats`);
         const data = await res.json();
-        if (!data.messages) return;
-        chatDisplay.innerHTML = data.messages.reverse().map(m => 
+        if (!data.messages || data.messages.length === 0) {
+            chatDisplay.innerHTML = '<div style="color:#ccc;text-align:center;margin-top:20px;">メッセージはありません</div>';
+            return;
+        }
+        
+        // 配列をコピーしてからリバース（破壊的変更を避ける）
+        const sortedMessages = [...data.messages].reverse();
+        
+        chatDisplay.innerHTML = sortedMessages.map(m => 
             `<div class="msg-item"><span class="msg-time">${m.time}</span><b>${m.name}</b>: ${m.message}</div>`
         ).join('');
+        
         chatDisplay.scrollTop = chatDisplay.scrollHeight;
-    } catch (e) { console.error("Chat Error", e); }
+    } catch (e) {
+        console.error("Chat Load Error:", e);
+    }
 };
 
+// チャット送信関数
 const sendChat = async () => {
     const msg = chatInput.value.trim();
     const name = document.getElementById('username').value || "匿名";
@@ -46,7 +58,6 @@ const updateMemberList = () => {
 const subscribe = async (pub) => {
     if (pub.publisherId === member.id || pub.contentType !== 'audio') return;
     if (document.getElementById(`audio-${pub.id}`)) return;
-
     try {
         const { stream } = await member.subscribe(pub.id);
         const el = document.createElement('audio');
@@ -59,6 +70,7 @@ const subscribe = async (pub) => {
     }
 };
 
+// 入室処理
 joinBtn.onclick = async () => {
     const password = document.getElementById('app-password').value;
     const username = document.getElementById('username').value || "匿名";
@@ -81,20 +93,23 @@ joinBtn.onclick = async () => {
         audioStream = await SkyWayStreamFactory.createMicrophoneAudioStream();
         await member.publish(audioStream);
 
+        // UI表示
         document.getElementById('login-area').style.display = 'none';
         document.getElementById('controls').style.display = 'block';
         document.getElementById('chat-section').style.display = 'block';
         memberList.style.display = 'block';
         statusLabel.innerText = "通話中";
 
+        // ここで即座にチャットを読み込む
+        await loadChats();
+
         updateMemberList();
         room.on('memberJoined', updateMemberList);
         room.on('memberLeft', updateMemberList);
-
         room.publications.forEach(subscribe);
         room.on('publicationAnnounced', ({ publication }) => subscribe(publication));
 
-        await loadChats();
+        // 5秒おきの更新を開始
         pollInterval = setInterval(loadChats, 5000);
 
     } catch (e) { alert(e.message); statusLabel.innerText = "待機中"; }
@@ -102,7 +117,6 @@ joinBtn.onclick = async () => {
 
 sendChatBtn.onclick = sendChat;
 chatInput.onkeypress = (e) => { if(e.key === 'Enter') sendChat(); };
-
 muteBtn.onclick = () => {
     isMuted = !isMuted;
     audioStream.track.enabled = !isMuted;
@@ -110,5 +124,4 @@ muteBtn.onclick = () => {
     muteBtn.classList.toggle('is-muted', isMuted);
     statusLabel.innerText = isMuted ? "ミュート中" : "通話中";
 };
-
 leaveBtn.onclick = () => location.reload();
